@@ -1,0 +1,49 @@
+# Python 3.11（开发环境实测 3.11.16，3.10 及以下未验证）
+#
+# 安装：
+#   pip install -r requirements.txt
+
+# --- 后端服务 ---
+fastapi==0.141.1
+uvicorn==0.53.0
+python-multipart==0.0.32
+
+# --- 前端界面 ---
+# 注意：gradio 必须锁在 5.x，6.x 有破坏性改动
+gradio==5.50.0
+
+# --- LangChain（必须 < 1.0，1.0 移除了 create_react_agent / AgentExecutor）---
+langchain==0.3.30
+langchain-community==0.3.31
+langchain-core==0.3.86
+langchain-openai==0.3.35
+langchain-text-splitters==0.3.11
+
+# --- 知识库：向量检索 + 中文分词 + 文档解析 ---
+faiss-cpu==1.15.0
+jieba==0.42.1
+pymupdf==1.28.2        # 代码里 import fitz，读 PDF
+python-docx==1.2.0     # 读 docx
+
+# --- 其他 ---
+SQLAlchemy==2.0.53     # 存知识库列表的 info.db
+pydantic==2.12.3       # 几个工具文件里直接用到了 Field
+requests==2.34.2
+openai==2.54.0
+pandas==2.3.3
+numpy==2.2.6
+codeboxapi==0.2.6      # 代码解释器工具
+
+
+# ============================================================
+# 以下默认【不需要】安装
+# ============================================================
+# 只有想把 embedding 从在线（硅基流动）换成 models/ 里的本地 BGE 模型时才需要，
+# 换成 kb_routes_local.py 那套配置后再装，否则白下 2.5G：
+#
+#   sentence-transformers==6.0.1
+#   torch==2.14.0
+#   modelscope            # 只有 utils/downloader.py 用，那个脚本是下载模型用的，主程序不 import 它
+#
+# 另外 models/AI-ModelScope/bge-large-zh-v1___5 目录（2.5G）默认也用不上，
+# 拷贝项目时可以不带。

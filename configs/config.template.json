@@ -1,0 +1,7 @@
+{
+  "_说明": "把本文件复制一份并重命名为 config.json，填入自己的 key 即可运行。config.json 已被 .gitignore 屏蔽，不会被提交到仓库。",
+  "chat_api_key": "",
+  "embedding_api_key": "",
+  "serpapi_key": "",
+  "seniverse_key": ""
+}
