@@ -29,11 +29,10 @@ def chat_with_agent(prompt, history, sys_prompt, history_len, temperature, max_t
     # 构建文件和表单数据：把附件文件以二进制读出，塞进 multipart 表单的 files 字段
     file_paths = _file_paths(prompt["files"])
     files = [('files', (open(file_path, 'rb'))) for file_path in file_paths]
-    if file_paths:
-        # 提取文件路径并拼接到 query 中（后端靠这个路径回显附件名）
-        query = f'{prompt["text"]}\n' + file_paths[0]
-    else:
-        query = f'{prompt["text"]}\n'
+    # query 只放用户输入的文本。附件内容由后端 files_rag 读好后放进 documents 传给模型 ——
+    # 绝不能把本地路径拼进来：模型看到"能直接打开的文件路径"，就会绕开 documents，
+    # 自己用 code_interpreter 去读文件（而不是使用后端预读好的内容）
+    query = f'{prompt["text"]}\n'
     # 构建请求数据：历史是 dict 列表，HTTP 表单只收字符串，所以 str(h) 逐个序列化
     # （后端用 literal_eval 再还原回来 —— 两边是一对协议）
     data = {

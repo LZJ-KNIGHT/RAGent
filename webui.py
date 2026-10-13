@@ -9,6 +9,7 @@
 import os
 import uuid
 import gradio as gr
+from gradio.components.chatbot import FileMessage
 from webui.chat_with_agent_api import chat_with_agent
 from webui.knowledgebase_api import create_kb, delete_kb, upload_docs, list_kbs, update
 
@@ -48,8 +49,13 @@ class NamedFileChatbot(gr.Chatbot):
     """让附件在聊天记录里只显示文件名，而不是一长串临时路径。
 
     gradio 的 ChatInterface 把附件写进历史时用的是 {"content": (path,)}（1 元组），
-    Chatbot 渲染成 FileMessage 时 alt_text 为空，前端就只能把 path 原样显示出来。
-    改成 2 元组 (path, 文件名) 后，_get_alt_text 会取第二个元素作为显示名。
+    渲染成 FileMessage 时没有显示名，前端就会把 path 原样显示成一条很长的字符串。
+
+    显示名分两步补：
+      ① 先把 1 元组改成 2 元组 (path, 文件名) —— _get_alt_text 会取第二个元素作为 alt_text；
+      ② 再把 alt_text 和 file.orig_name 都填上文件名 ——
+         gradio 5.50 的文件卡片实际读取的是 file.orig_name，
+         alt_text 已不再参与显示，只填 alt_text 的话在新版本里会"静默失效"。
 
     只影响显示：传给后端的数据没有被改，open() 拿到的仍然是完整路径。
     注意：依赖 Chatbot._postprocess_content 这个私有方法，gradio 大版本升级要复查。
@@ -67,7 +73,15 @@ class NamedFileChatbot(gr.Chatbot):
             and isinstance(chat_message[0], str)
         ):
             chat_message = (chat_message[0], os.path.basename(chat_message[0]))
-        return super()._postprocess_content(chat_message)
+        result = super()._postprocess_content(chat_message)
+        # 文件卡片以 file.orig_name 为显示名，为空时前端会退回显示完整路径
+        if isinstance(result, FileMessage):
+            filename = os.path.basename(result.file.path or "")
+            if not result.file.orig_name:
+                result.file.orig_name = filename
+            if not result.alt_text:
+                result.alt_text = filename
+        return result
 
 
 # 定义一个生成唯一会话 ID 的函数

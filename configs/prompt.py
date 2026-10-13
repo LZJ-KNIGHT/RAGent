@@ -19,8 +19,13 @@ PROMPT_TEMPLATES = {
                '{tools}\n\n'
                'You have access to the following knowledge bases:\n\n'
                '{knowledgebases}\n\n'
-               'You have the following documents:\n\n'
+               # {documents} 是后端预读好的附件全文。下面两句是"防走偏护栏" ——
+               # 不加的话，模型看到文件名就绕开现成内容，自己用工具去打开文件
+               'You have the following documents (full contents of the user-uploaded attachments, already extracted for you):\n\n'
                '{documents}\n\n'
+               'Never open, read, extract or download these files yourself — do not use code_interpreter or web search '
+               'to read local files, their contents are already provided above. '
+               'If a document is empty or cannot be parsed, just tell the user directly.\n\n'
                'Use the following format:\n'
                'Question: the input question you must answer\n'
                'Thought: you should always think about what to do and what tools to use.\n'

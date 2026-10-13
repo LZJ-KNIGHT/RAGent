@@ -23,7 +23,7 @@ from utils.callback import CustomAsyncIteratorCallbackHandler
 from db_server.base import session
 from db_server.knowledge_base_repository import list_kb_from_db
 from tools.code_interpreter import code_interpreter
-from utils.load_docs import get_file_content
+from utils.load_docs import get_file_content, UNSUPPORTED_FILE_TIP
 
 # 路由组：本文件所有接口的 URL 都以 /chat 开头（如 /chat/agent_chat）。
 # tags 只用于 FastAPI 自动生成的接口文档分组；URL 前缀与磁盘文件夹无关
@@ -52,9 +52,29 @@ def files_rag(files, uuid):
         file_path = os.path.join(kb_file_storage_path, filename)
         if os.path.isfile(file_path):
             file_content = get_file_content(file_path)
+            if file_content == UNSUPPORTED_FILE_TIP:
+                # 格式不支持的文件：给模型的不是"人话报错"，而是一条明确指令 ——
+                # 不加这段，模型会拿着文件名去联网搜索、对无关结果臆测（接地失败型幻觉）
+                file_content = (
+                    f"【重要提示】文件 {filename} 的格式系统无法解析，内容不可读取。"
+                    "请直接告知用户该文件格式不支持、建议更换为 txt/md/pdf/csv/docx/json/py 格式后重发；"
+                    "严禁根据文件名猜测文件内容，严禁调用联网搜索查找该文件。"
+                )
+            elif not file_content.strip():
+                # 提取结果为空：扫描件连 OCR 也没读出内容，或就是空文件 ——
+                # 空内容 + 文件名会让模型不甘心"看不到文件"，转而自己动手打开它
+                # （code_interpreter 读文件、联网搜"怎么提取 PDF"），同属接地失败型幻觉
+                file_content = (
+                    f"【重要提示】文件 {filename} 中没有提取到任何文字内容"
+                    "（已尝试文字提取与 OCR 识别；常见于扫描件、纯图片型 PDF 或空文件），"
+                    "系统无法读取其中内容。"
+                    "请直接告知用户该文件读不出文字、建议换成文字版文件后重发；"
+                    "严禁根据文件名猜测文件内容，严禁调用联网搜索或 code_interpreter 尝试读取文件。"
+                )
 
-            # 直接将路径和内容拼接到结果字符串
-            result.append(f"document:.{file_path}\ncontent:{file_content}\n")
+            # 只给文件名、不给本地路径：模型看到路径会绕开这段现成内容，
+            # 转而用 code_interpreter 自己打开文件
+            result.append(f"document:{filename}\ncontent:{file_content}\n")
     return "".join(result)
 
 
@@ -87,6 +107,10 @@ async def agent_chat(
     for msg in history:
         role = msg.get('role')
         content = msg.get('content')
+        # 附件消息的 content 是 (本地路径,) 元组：只保留文件名 ——
+        # 本地路径泄露给模型，它会绕开 documents 用 code_interpreter 自己读文件
+        if isinstance(content, (tuple, list)):
+            content = "（附件：" + "、".join(os.path.basename(str(p)) for p in content) + "）"
         histories += f"{role}:{content}\n\n"
 
     # 真正干活的生成器：Agent 在这里跑，token 从这里流回前端。
